@@ -84,7 +84,6 @@ This guide will help you deploy your YouTube Tutorial Scraper as a web applicati
    - Render will automatically build and deploy your app
    - Database and container will be created automatically on first run!
 
-
 ## ✅ Access Your App
 
 Once deployed, you'll get a URL like:
@@ -118,6 +117,7 @@ You can now access this from:
 ### Free Tier Benefits
 
 **Azure Cosmos DB Serverless:**
+
 - ✅ **Pay only for what you use** (no minimum charges)
 - ✅ **1 million RU/s included** (plenty for this app)
 - ✅ **25 GB storage** on free tier
@@ -125,6 +125,7 @@ You can now access this from:
 - ✅ **Global distribution** available
 
 **Render Free Tier:**
+
 - ✅ **750 hours/month** (enough for 24/7 usage!)
 - ✅ **512 MB RAM** (sufficient for this app)
 - ⚠️ **App sleeps after 15 minutes of inactivity** (wakes up in ~30 seconds)
@@ -203,7 +204,7 @@ Render will automatically detect changes and redeploy!
 - Render Hobby: $7/month (no sleep, better performance)
 - Cosmos DB Provisioned: ~$24/month for 400 RU/s (predictable costs)
 
-## 🎉 You're Done!
+## 🎉 You're Done
 
 Your YouTube Tutorial Scraper is now:
 
@@ -221,6 +222,7 @@ Your YouTube Tutorial Scraper is now:
 To develop locally with Cosmos DB:
 
 1. **Option 1: Use Azure Cosmos DB Emulator** (Windows/Docker):
+
    ```bash
    # Install emulator or run via Docker
    docker run -p 8081:8081 -p 10251:10251 mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator
@@ -232,6 +234,7 @@ To develop locally with Cosmos DB:
 
 2. **Option 2: Use your Azure Cosmos DB** (recommended):
    - Create a `.env` file in your project:
+
    ```
    COSMOS_ENDPOINT=https://your-account.documents.azure.com:443/
    COSMOS_KEY=your-primary-key

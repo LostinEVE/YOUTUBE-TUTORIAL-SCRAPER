@@ -15,37 +15,38 @@ class TutorialDatabase:
         key = config.COSMOS_KEY
         database_name = config.COSMOS_DATABASE_NAME
         container_name = config.COSMOS_CONTAINER_NAME
-        
+
         if not endpoint or not key:
             raise ValueError(
                 "Azure Cosmos DB credentials not configured. "
                 "Please set COSMOS_ENDPOINT and COSMOS_KEY environment variables."
             )
-        
+
         # Initialize Cosmos Client
         self.client = CosmosClient(endpoint, key)
         self.database_name = database_name
         self.container_name = container_name
-        
+
         # Initialize database and container
         self._init_db()
-    
+
     def _init_db(self):
         """Initialize the database and container with proper partitioning"""
         # Create database if it doesn't exist
-        self.database = self.client.create_database_if_not_exists(id=self.database_name)
-        
+        self.database = self.client.create_database_if_not_exists(
+            id=self.database_name)
+
         # Create container with partition key
         # Using /programming_language as primary partition for even distribution
         # This allows efficient queries by language
         partition_key = PartitionKey(path="/programming_language", kind="Hash")
-        
+
         self.container = self.database.create_container_if_not_exists(
             id=self.container_name,
             partition_key=partition_key,
             offer_throughput=400  # Minimum RU/s for manual throughput
         )
-    
+
     def add_tutorial(self, tutorial: Dict[str, Any]) -> bool:
         """
         Add a tutorial to the database. Returns True if added, False if duplicate.
@@ -72,18 +73,18 @@ class TutorialDatabase:
                 'is_favorite': False,
                 'is_watched': False
             }
-            
+
             # Try to create the item
             self.container.create_item(body=item)
             return True
-            
+
         except exceptions.CosmosResourceExistsError:
             # Item with this id already exists
             return False
         except Exception as e:
             print(f"Error adding tutorial: {e}")
             return False
-    
+
     def get_tutorials_by_language(self, language: str) -> List[Dict[str, Any]]:
         """Get all tutorials for a specific programming language"""
         query = """
@@ -91,9 +92,9 @@ class TutorialDatabase:
             WHERE c.programming_language = @language
             ORDER BY c.view_count DESC
         """
-        
+
         parameters = [{"name": "@language", "value": language}]
-        
+
         try:
             items = list(self.container.query_items(
                 query=query,
@@ -104,7 +105,7 @@ class TutorialDatabase:
         except Exception as e:
             print(f"Error querying by language: {e}")
             return []
-    
+
     def get_tutorials_by_subject(self, subject: str) -> List[Dict[str, Any]]:
         """Get all tutorials for a specific subject"""
         query = """
@@ -112,9 +113,9 @@ class TutorialDatabase:
             WHERE c.subject = @subject
             ORDER BY c.view_count DESC
         """
-        
+
         parameters = [{"name": "@subject", "value": subject}]
-        
+
         try:
             items = list(self.container.query_items(
                 query=query,
@@ -125,11 +126,11 @@ class TutorialDatabase:
         except Exception as e:
             print(f"Error querying by subject: {e}")
             return []
-    
+
     def get_all_tutorials(self) -> List[Dict[str, Any]]:
         """Get all tutorials"""
         query = "SELECT * FROM c ORDER BY c.added_at DESC"
-        
+
         try:
             items = list(self.container.query_items(
                 query=query,
@@ -139,7 +140,7 @@ class TutorialDatabase:
         except Exception as e:
             print(f"Error getting all tutorials: {e}")
             return []
-    
+
     def get_categories_summary(self) -> Dict[str, Any]:
         """Get a summary of tutorials by category"""
         try:
@@ -156,7 +157,7 @@ class TutorialDatabase:
                 enable_cross_partition_query=True
             ):
                 by_language[item['programming_language']] = item['count']
-            
+
             # Count by subject
             subject_query = """
                 SELECT c.subject, COUNT(1) as count
@@ -170,14 +171,14 @@ class TutorialDatabase:
                 enable_cross_partition_query=True
             ):
                 by_subject[item['subject']] = item['count']
-            
+
             # Total count
             total_query = "SELECT VALUE COUNT(1) FROM c"
             total = list(self.container.query_items(
                 query=total_query,
                 enable_cross_partition_query=True
             ))[0]
-            
+
             return {
                 'total': total,
                 'by_language': by_language,
@@ -186,7 +187,7 @@ class TutorialDatabase:
         except Exception as e:
             print(f"Error getting categories summary: {e}")
             return {'total': 0, 'by_language': {}, 'by_subject': {}}
-    
+
     def mark_watched(self, video_id: str):
         """Mark a tutorial as watched"""
         try:
@@ -195,16 +196,16 @@ class TutorialDatabase:
                 item=video_id,
                 partition_key=self._get_partition_key(video_id)
             )
-            
+
             # Update the item
             item['is_watched'] = True
             self.container.replace_item(item=item['id'], body=item)
-            
+
         except exceptions.CosmosResourceNotFoundError:
             print(f"Tutorial {video_id} not found")
         except Exception as e:
             print(f"Error marking as watched: {e}")
-    
+
     def mark_favorite(self, video_id: str, is_favorite: bool = True):
         """Mark a tutorial as favorite"""
         try:
@@ -213,16 +214,16 @@ class TutorialDatabase:
                 item=video_id,
                 partition_key=self._get_partition_key(video_id)
             )
-            
+
             # Update the item
             item['is_favorite'] = is_favorite
             self.container.replace_item(item=item['id'], body=item)
-            
+
         except exceptions.CosmosResourceNotFoundError:
             print(f"Tutorial {video_id} not found")
         except Exception as e:
             print(f"Error marking as favorite: {e}")
-    
+
     def delete_tutorial(self, video_id: str):
         """Delete a tutorial from the database"""
         try:
@@ -234,7 +235,7 @@ class TutorialDatabase:
             print(f"Tutorial {video_id} not found")
         except Exception as e:
             print(f"Error deleting tutorial: {e}")
-    
+
     def search_tutorials(self, query: str) -> List[Dict[str, Any]]:
         """Search tutorials by title or description"""
         search_query = """
@@ -243,9 +244,9 @@ class TutorialDatabase:
                OR CONTAINS(LOWER(c.description), LOWER(@query))
             ORDER BY c.view_count DESC
         """
-        
+
         parameters = [{"name": "@query", "value": query}]
-        
+
         try:
             items = list(self.container.query_items(
                 query=search_query,
@@ -256,7 +257,7 @@ class TutorialDatabase:
         except Exception as e:
             print(f"Error searching tutorials: {e}")
             return []
-    
+
     def _get_partition_key(self, video_id: str) -> str:
         """
         Get the partition key value for a given video_id.
@@ -266,7 +267,7 @@ class TutorialDatabase:
         # We'll query to find it
         query = "SELECT c.programming_language FROM c WHERE c.id = @video_id"
         parameters = [{"name": "@video_id", "value": video_id}]
-        
+
         try:
             results = list(self.container.query_items(
                 query=query,
@@ -277,5 +278,5 @@ class TutorialDatabase:
                 return results[0]['programming_language']
         except Exception as e:
             print(f"Error getting partition key: {e}")
-        
+
         return ""
