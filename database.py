@@ -41,10 +41,11 @@ class TutorialDatabase:
         # This allows efficient queries by language
         partition_key = PartitionKey(path="/programming_language", kind="Hash")
 
+        # Note: offer_throughput is not specified for serverless accounts
+        # Serverless accounts automatically scale based on usage
         self.container = self.database.create_container_if_not_exists(
             id=self.container_name,
-            partition_key=partition_key,
-            offer_throughput=400  # Minimum RU/s for manual throughput
+            partition_key=partition_key
         )
 
     def add_tutorial(self, tutorial: Dict[str, Any]) -> bool:
