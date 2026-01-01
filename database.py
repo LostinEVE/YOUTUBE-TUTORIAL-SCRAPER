@@ -1,206 +1,281 @@
-"""Database module for storing and retrieving tutorials"""
+"""Database module for storing and retrieving tutorials using Azure Cosmos DB"""
 
-import sqlite3
+from azure.cosmos import CosmosClient, PartitionKey, exceptions
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 import os
+import config
 
 
 class TutorialDatabase:
-    def __init__(self, db_path: str = None):
-        # Use persistent storage path if available (for Render deployment)
-        # Otherwise use local path for development
-        if db_path is None:
-            if os.path.exists('/app/data'):
-                db_path = '/app/data/tutorials.db'
-            else:
-                db_path = 'tutorials.db'
-        self.db_path = db_path
+    def __init__(self):
+        """Initialize connection to Azure Cosmos DB"""
+        # Get configuration from environment variables
+        endpoint = config.COSMOS_ENDPOINT
+        key = config.COSMOS_KEY
+        database_name = config.COSMOS_DATABASE_NAME
+        container_name = config.COSMOS_CONTAINER_NAME
+        
+        if not endpoint or not key:
+            raise ValueError(
+                "Azure Cosmos DB credentials not configured. "
+                "Please set COSMOS_ENDPOINT and COSMOS_KEY environment variables."
+            )
+        
+        # Initialize Cosmos Client
+        self.client = CosmosClient(endpoint, key)
+        self.database_name = database_name
+        self.container_name = container_name
+        
+        # Initialize database and container
         self._init_db()
-
+    
     def _init_db(self):
-        """Initialize the database with required tables"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-
-            # Create tutorials table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS tutorials (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    video_id TEXT UNIQUE NOT NULL,
-                    title TEXT NOT NULL,
-                    description TEXT,
-                    channel_name TEXT,
-                    channel_id TEXT,
-                    published_at TEXT,
-                    duration_seconds INTEGER,
-                    view_count INTEGER,
-                    like_count INTEGER,
-                    thumbnail_url TEXT,
-                    video_url TEXT,
-                    programming_language TEXT,
-                    subject TEXT,
-                    country_code TEXT,
-                    added_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                    is_favorite INTEGER DEFAULT 0,
-                    is_watched INTEGER DEFAULT 0
-                )
-            """)
-
-            # Create index for faster queries
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_language 
-                ON tutorials(programming_language)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_subject 
-                ON tutorials(subject)
-            """)
-            cursor.execute("""
-                CREATE INDEX IF NOT EXISTS idx_video_id 
-                ON tutorials(video_id)
-            """)
-
-            conn.commit()
-
+        """Initialize the database and container with proper partitioning"""
+        # Create database if it doesn't exist
+        self.database = self.client.create_database_if_not_exists(id=self.database_name)
+        
+        # Create container with partition key
+        # Using /programming_language as primary partition for even distribution
+        # This allows efficient queries by language
+        partition_key = PartitionKey(path="/programming_language", kind="Hash")
+        
+        self.container = self.database.create_container_if_not_exists(
+            id=self.container_name,
+            partition_key=partition_key,
+            offer_throughput=400  # Minimum RU/s for manual throughput
+        )
+    
     def add_tutorial(self, tutorial: Dict[str, Any]) -> bool:
-        """Add a tutorial to the database. Returns True if added, False if duplicate."""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute("""
-                    INSERT INTO tutorials (
-                        video_id, title, description, channel_name, channel_id,
-                        published_at, duration_seconds, view_count, like_count,
-                        thumbnail_url, video_url, programming_language, subject,
-                        country_code, added_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    tutorial.get('video_id'),
-                    tutorial.get('title'),
-                    tutorial.get('description'),
-                    tutorial.get('channel_name'),
-                    tutorial.get('channel_id'),
-                    tutorial.get('published_at'),
-                    tutorial.get('duration_seconds'),
-                    tutorial.get('view_count'),
-                    tutorial.get('like_count'),
-                    tutorial.get('thumbnail_url'),
-                    tutorial.get('video_url'),
-                    tutorial.get('programming_language'),
-                    tutorial.get('subject'),
-                    tutorial.get('country_code'),
-                    datetime.now().isoformat()
-                ))
-                conn.commit()
-                return True
-            except sqlite3.IntegrityError:
-                # Duplicate video_id
-                return False
-
+        """
+        Add a tutorial to the database. Returns True if added, False if duplicate.
+        """
+        try:
+            # Prepare the item for Cosmos DB
+            item = {
+                'id': tutorial.get('video_id'),  # Use video_id as unique id
+                'video_id': tutorial.get('video_id'),
+                'title': tutorial.get('title'),
+                'description': tutorial.get('description'),
+                'channel_name': tutorial.get('channel_name'),
+                'channel_id': tutorial.get('channel_id'),
+                'published_at': tutorial.get('published_at'),
+                'duration_seconds': tutorial.get('duration_seconds'),
+                'view_count': tutorial.get('view_count'),
+                'like_count': tutorial.get('like_count'),
+                'thumbnail_url': tutorial.get('thumbnail_url'),
+                'video_url': tutorial.get('video_url'),
+                'programming_language': tutorial.get('programming_language'),
+                'subject': tutorial.get('subject'),
+                'country_code': tutorial.get('country_code'),
+                'added_at': datetime.now().isoformat(),
+                'is_favorite': False,
+                'is_watched': False
+            }
+            
+            # Try to create the item
+            self.container.create_item(body=item)
+            return True
+            
+        except exceptions.CosmosResourceExistsError:
+            # Item with this id already exists
+            return False
+        except Exception as e:
+            print(f"Error adding tutorial: {e}")
+            return False
+    
     def get_tutorials_by_language(self, language: str) -> List[Dict[str, Any]]:
         """Get all tutorials for a specific programming language"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM tutorials 
-                WHERE programming_language = ?
-                ORDER BY view_count DESC
-            """, (language,))
-            return [dict(row) for row in cursor.fetchall()]
-
+        query = """
+            SELECT * FROM c 
+            WHERE c.programming_language = @language
+            ORDER BY c.view_count DESC
+        """
+        
+        parameters = [{"name": "@language", "value": language}]
+        
+        try:
+            items = list(self.container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=False  # Single partition query
+            ))
+            return items
+        except Exception as e:
+            print(f"Error querying by language: {e}")
+            return []
+    
     def get_tutorials_by_subject(self, subject: str) -> List[Dict[str, Any]]:
         """Get all tutorials for a specific subject"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM tutorials 
-                WHERE subject = ?
-                ORDER BY view_count DESC
-            """, (subject,))
-            return [dict(row) for row in cursor.fetchall()]
-
+        query = """
+            SELECT * FROM c 
+            WHERE c.subject = @subject
+            ORDER BY c.view_count DESC
+        """
+        
+        parameters = [{"name": "@subject", "value": subject}]
+        
+        try:
+            items = list(self.container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True  # Cross-partition query
+            ))
+            return items
+        except Exception as e:
+            print(f"Error querying by subject: {e}")
+            return []
+    
     def get_all_tutorials(self) -> List[Dict[str, Any]]:
         """Get all tutorials"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM tutorials ORDER BY added_at DESC")
-            return [dict(row) for row in cursor.fetchall()]
-
+        query = "SELECT * FROM c ORDER BY c.added_at DESC"
+        
+        try:
+            items = list(self.container.query_items(
+                query=query,
+                enable_cross_partition_query=True
+            ))
+            return items
+        except Exception as e:
+            print(f"Error getting all tutorials: {e}")
+            return []
+    
     def get_categories_summary(self) -> Dict[str, Any]:
         """Get a summary of tutorials by category"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-
+        try:
             # Count by language
-            cursor.execute("""
-                SELECT programming_language, COUNT(*) as count 
-                FROM tutorials 
-                WHERE programming_language IS NOT NULL
-                GROUP BY programming_language
-                ORDER BY count DESC
-            """)
-            by_language = {row[0]: row[1] for row in cursor.fetchall()}
-
+            language_query = """
+                SELECT c.programming_language, COUNT(1) as count
+                FROM c
+                WHERE IS_DEFINED(c.programming_language)
+                GROUP BY c.programming_language
+            """
+            by_language = {}
+            for item in self.container.query_items(
+                query=language_query,
+                enable_cross_partition_query=True
+            ):
+                by_language[item['programming_language']] = item['count']
+            
             # Count by subject
-            cursor.execute("""
-                SELECT subject, COUNT(*) as count 
-                FROM tutorials 
-                WHERE subject IS NOT NULL
-                GROUP BY subject
-                ORDER BY count DESC
-            """)
-            by_subject = {row[0]: row[1] for row in cursor.fetchall()}
-
+            subject_query = """
+                SELECT c.subject, COUNT(1) as count
+                FROM c
+                WHERE IS_DEFINED(c.subject)
+                GROUP BY c.subject
+            """
+            by_subject = {}
+            for item in self.container.query_items(
+                query=subject_query,
+                enable_cross_partition_query=True
+            ):
+                by_subject[item['subject']] = item['count']
+            
             # Total count
-            cursor.execute("SELECT COUNT(*) FROM tutorials")
-            total = cursor.fetchone()[0]
-
+            total_query = "SELECT VALUE COUNT(1) FROM c"
+            total = list(self.container.query_items(
+                query=total_query,
+                enable_cross_partition_query=True
+            ))[0]
+            
             return {
                 'total': total,
                 'by_language': by_language,
                 'by_subject': by_subject
             }
-
+        except Exception as e:
+            print(f"Error getting categories summary: {e}")
+            return {'total': 0, 'by_language': {}, 'by_subject': {}}
+    
     def mark_watched(self, video_id: str):
         """Mark a tutorial as watched"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE tutorials SET is_watched = 1 WHERE video_id = ?",
-                (video_id,)
+        try:
+            # Read the item first to get partition key
+            item = self.container.read_item(
+                item=video_id,
+                partition_key=self._get_partition_key(video_id)
             )
-            conn.commit()
-
+            
+            # Update the item
+            item['is_watched'] = True
+            self.container.replace_item(item=item['id'], body=item)
+            
+        except exceptions.CosmosResourceNotFoundError:
+            print(f"Tutorial {video_id} not found")
+        except Exception as e:
+            print(f"Error marking as watched: {e}")
+    
     def mark_favorite(self, video_id: str, is_favorite: bool = True):
         """Mark a tutorial as favorite"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE tutorials SET is_favorite = ? WHERE video_id = ?",
-                (1 if is_favorite else 0, video_id)
+        try:
+            # Read the item first to get partition key
+            item = self.container.read_item(
+                item=video_id,
+                partition_key=self._get_partition_key(video_id)
             )
-            conn.commit()
-
+            
+            # Update the item
+            item['is_favorite'] = is_favorite
+            self.container.replace_item(item=item['id'], body=item)
+            
+        except exceptions.CosmosResourceNotFoundError:
+            print(f"Tutorial {video_id} not found")
+        except Exception as e:
+            print(f"Error marking as favorite: {e}")
+    
     def delete_tutorial(self, video_id: str):
         """Delete a tutorial from the database"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "DELETE FROM tutorials WHERE video_id = ?", (video_id,))
-            conn.commit()
-
+        try:
+            self.container.delete_item(
+                item=video_id,
+                partition_key=self._get_partition_key(video_id)
+            )
+        except exceptions.CosmosResourceNotFoundError:
+            print(f"Tutorial {video_id} not found")
+        except Exception as e:
+            print(f"Error deleting tutorial: {e}")
+    
     def search_tutorials(self, query: str) -> List[Dict[str, Any]]:
         """Search tutorials by title or description"""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("""
-                SELECT * FROM tutorials 
-                WHERE title LIKE ? OR description LIKE ?
-                ORDER BY view_count DESC
-            """, (f'%{query}%', f'%{query}%'))
-            return [dict(row) for row in cursor.fetchall()]
+        search_query = """
+            SELECT * FROM c 
+            WHERE CONTAINS(LOWER(c.title), LOWER(@query))
+               OR CONTAINS(LOWER(c.description), LOWER(@query))
+            ORDER BY c.view_count DESC
+        """
+        
+        parameters = [{"name": "@query", "value": query}]
+        
+        try:
+            items = list(self.container.query_items(
+                query=search_query,
+                parameters=parameters,
+                enable_cross_partition_query=True
+            ))
+            return items
+        except Exception as e:
+            print(f"Error searching tutorials: {e}")
+            return []
+    
+    def _get_partition_key(self, video_id: str) -> str:
+        """
+        Get the partition key value for a given video_id.
+        This requires reading the item to get its programming_language.
+        """
+        # For point operations, we need the partition key
+        # We'll query to find it
+        query = "SELECT c.programming_language FROM c WHERE c.id = @video_id"
+        parameters = [{"name": "@video_id", "value": video_id}]
+        
+        try:
+            results = list(self.container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True
+            ))
+            if results:
+                return results[0]['programming_language']
+        except Exception as e:
+            print(f"Error getting partition key: {e}")
+        
+        return ""

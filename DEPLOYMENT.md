@@ -1,38 +1,40 @@
 # 🚀 Deploy YouTube Tutorial Scraper to Render (Free)
 
-This guide will help you deploy your YouTube Tutorial Scraper as a web application on Render.com for **FREE**.
+This guide will help you deploy your YouTube Tutorial Scraper as a web application on Render.com for **FREE** using **Azure Cosmos DB** for persistent storage.
 
 ## 📋 Prerequisites
 
 - GitHub account
 - YouTube API Key (from Google Cloud Console)
-- 10 minutes of your time!
+- Azure account (free tier available)
+- 15 minutes of your time!
 
 ## 🎯 Step-by-Step Deployment
 
-### Step 1: Prepare Your Repository
+### Step 1: Set Up Azure Cosmos DB (FREE Forever!)
 
-1. **Initialize Git** (if not already done):
+1. **Create Azure Account** (if you don't have one):
+   - Go to [Azure Portal](https://portal.azure.com)
+   - Sign up for free account ($200 credit + free services)
 
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit - Web version"
-   ```
+2. **Create Cosmos DB Account**:
+   - In Azure Portal, search for "Azure Cosmos DB"
+   - Click "Create" → "Azure Cosmos DB for NoSQL"
+   - **Subscription**: Choose your subscription
+   - **Resource Group**: Create new (e.g., "youtube-scraper-rg")
+   - **Account Name**: Choose unique name (e.g., "youtube-tutorials-db")
+   - **Location**: Choose closest region
+   - **Capacity mode**: Select "Serverless" (FREE - no RU/s charges)
+   - Click "Review + Create" → "Create"
+   - Wait 5-10 minutes for deployment
 
-2. **Create a GitHub repository**:
-   - Go to <https://github.com/new>
-   - Name it: `youtube-tutorial-scraper`
-   - Make it Public or Private (both work)
-   - Don't initialize with README (we already have files)
-
-3. **Push your code to GitHub**:
-
-   ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/youtube-tutorial-scraper.git
-   git branch -M main
-   git push -u origin main
-   ```
+3. **Get Connection Details**:
+   - Go to your Cosmos DB account
+   - Click "Keys" in left menu
+   - Copy:
+     - **URI** (endpoint)
+     - **PRIMARY KEY**
+   - Save these for Step 3!
 
 ### Step 2: Get Your YouTube API Key
 
@@ -53,12 +55,12 @@ This guide will help you deploy your YouTube Tutorial Scraper as a web applicati
    - Click "New +" button
    - Select "Web Service"
    - Connect your GitHub repository
-   - Select `youtube-tutorial-scraper` repository
+   - Select `YOUTUBE-TUTORIAL-SCRAPER` repository
 
 3. **Configure the Service**:
    - **Name**: `youtube-tutorial-scraper` (or your choice)
    - **Region**: Choose closest to you
-   - **Branch**: `main`
+   - **Branch**: `master`
    - **Runtime**: `Docker`
    - **Plan**: Select **Free**
 
@@ -66,44 +68,22 @@ This guide will help you deploy your YouTube Tutorial Scraper as a web applicati
    - Click "Advanced" or scroll to "Environment Variables"
    - Add the following:
 
-   | Key | Value |
-   |-----|-------|
-   | `YOUTUBE_API_KEY` | Your API key from Step 2 |
-   | `SECRET_KEY` | Any random string (e.g., `my-secret-key-123`) |
-   | `PORT` | `10000` |
+   | Key | Value | Description |
+   |-----|-------|-------------|
+   | `YOUTUBE_API_KEY` | Your YouTube API key | From Step 2 |
+   | `SECRET_KEY` | Any random string | e.g., `my-secret-key-123` |
+   | `PORT` | `10000` | Render default port |
+   | `COSMOS_ENDPOINT` | Your Cosmos DB URI | From Step 1 |
+   | `COSMOS_KEY` | Your Cosmos DB PRIMARY KEY | From Step 1 |
+   | `COSMOS_DATABASE_NAME` | `YouTubeTutorials` | Database name |
+   | `COSMOS_CONTAINER_NAME` | `tutorials` | Container name |
 
-5. **Configure Disk Storage** (Important!):
-   - Scroll to "Disks"
-   - Click "Add Disk"
-   - **Name**: `tutorial-data`
-   - **Mount Path**: `/app/data`
-   - **Size**: 1 GB (free tier)
-
-6. **Deploy**:
+5. **Deploy**:
    - Click "Create Web Service"
    - Wait 5-10 minutes for the first build
    - Render will automatically build and deploy your app
+   - Database and container will be created automatically on first run!
 
-### Step 4: Update Database Path (Important!)
-
-Since we're using persistent storage, we need to update the database path.
-
-1. **Edit `database.py`** locally:
-
-   ```python
-   # Change this line in database.py __init__ method:
-   def __init__(self, db_path: str = "/app/data/tutorials.db"):
-   ```
-
-2. **Commit and push**:
-
-   ```bash
-   git add database.py
-   git commit -m "Update database path for Render deployment"
-   git push
-   ```
-
-3. Render will automatically redeploy with the new changes!
 
 ## ✅ Access Your App
 
@@ -135,12 +115,19 @@ You can now access this from:
 
 ## ⚙️ Important Notes
 
-### Free Tier Limitations
+### Free Tier Benefits
 
+**Azure Cosmos DB Serverless:**
+- ✅ **Pay only for what you use** (no minimum charges)
+- ✅ **1 million RU/s included** (plenty for this app)
+- ✅ **25 GB storage** on free tier
+- ✅ **Data persists forever** (no expiration)
+- ✅ **Global distribution** available
+
+**Render Free Tier:**
 - ✅ **750 hours/month** (enough for 24/7 usage!)
 - ✅ **512 MB RAM** (sufficient for this app)
 - ⚠️ **App sleeps after 15 minutes of inactivity** (wakes up in ~30 seconds)
-- ✅ **1 GB persistent storage** (stores your database)
 
 ### First Visit After Sleep
 
@@ -172,13 +159,14 @@ Render will automatically detect changes and redeploy!
 ### App Won't Start
 
 - Check "Logs" tab in Render dashboard
-- Verify all environment variables are set
-- Make sure disk is properly mounted
+- Verify all environment variables are set correctly
+- Ensure Azure Cosmos DB credentials are correct
 
-### Database Not Persisting
+### Database Connection Errors
 
-- Verify disk mount path is `/app/data`
-- Check `database.py` uses `/app/data/tutorials.db`
+- Verify `COSMOS_ENDPOINT` and `COSMOS_KEY` are correct
+- Check Azure Cosmos DB firewall settings (should allow all networks for Render)
+- Ensure database is in "Serverless" mode
 
 ### YouTube API Errors
 
@@ -186,31 +174,71 @@ Render will automatically detect changes and redeploy!
 - Check API key has YouTube Data API v3 enabled
 - Ensure you haven't exceeded free quota (10,000 requests/day)
 
+### Performance Issues
+
+- Cosmos DB queries are optimized with partition keys
+- Most queries (by language) are single-partition and very fast
+- Cross-partition queries (by subject, search) may take slightly longer
+
 ## 💰 Cost Breakdown
 
-### Completely Free
+### Completely Free (for small usage)
 
 - ✅ Render Free Tier: $0/month
 - ✅ YouTube API: $0 (free tier: 10,000 requests/day)
 - ✅ GitHub: $0 (public/private repos)
-- ✅ **Total: $0/month** 🎉
+- ✅ Azure Cosmos DB Serverless: **~$0-2/month** (with minimal usage)
+- ✅ **Estimated Total: $0-2/month** 🎉
+
+### Cosmos DB Pricing Details
+
+- **Storage**: $0.25/GB per month (first 25 GB free on some plans)
+- **Operations**: Charged per Request Unit (RU)
+  - 1 read (1KB) = 1 RU ≈ $0.0000001
+  - 1 write (1KB) = 5 RU ≈ $0.0000005
+- **For 1000 tutorials**: Storage ~1 GB, Operations ~100K RU/month = **~$0.01-0.50/month**
 
 ### If You Need More Later
 
 - Render Hobby: $7/month (no sleep, better performance)
-- Render Starter: $25/month (production-ready)
+- Cosmos DB Provisioned: ~$24/month for 400 RU/s (predictable costs)
 
-## 🎉 You're Done
+## 🎉 You're Done!
 
 Your YouTube Tutorial Scraper is now:
 
 - 🌐 Accessible from anywhere
 - 📱 Works on phone and laptop
-- 💾 Saves your data permanently
-- 🆓 Completely FREE
+- 💾 Saves your data permanently in Azure Cosmos DB
+- 🔄 Globally distributed and scalable
+- 🆓 Nearly FREE (serverless pricing)
 - 🔄 Auto-updates when you push to GitHub
 
-**Enjoy your mobile-friendly tutorial scraper!** 🚀
+**Enjoy your mobile-friendly, globally-distributed tutorial scraper!** 🚀
+
+## 🔧 Advanced: Local Development with Cosmos DB
+
+To develop locally with Cosmos DB:
+
+1. **Option 1: Use Azure Cosmos DB Emulator** (Windows/Docker):
+   ```bash
+   # Install emulator or run via Docker
+   docker run -p 8081:8081 -p 10251:10251 mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator
+   
+   # Set environment variables
+   export COSMOS_ENDPOINT="https://localhost:8081"
+   export COSMOS_KEY="<emulator-key>"
+   ```
+
+2. **Option 2: Use your Azure Cosmos DB** (recommended):
+   - Create a `.env` file in your project:
+   ```
+   COSMOS_ENDPOINT=https://your-account.documents.azure.com:443/
+   COSMOS_KEY=your-primary-key
+   COSMOS_DATABASE_NAME=YouTubeTutorials
+   COSMOS_CONTAINER_NAME=tutorials
+   YOUTUBE_API_KEY=your-youtube-api-key
+   ```
 
 ---
 
@@ -220,11 +248,13 @@ If you run into issues:
 
 1. Check Render logs (Dashboard → Logs tab)
 2. Review environment variables
-3. Verify GitHub repository is connected
-4. Check that disk storage is properly configured
+3. Verify Azure Cosmos DB connection in Azure Portal
+4. Check Cosmos DB metrics for request units and errors
 
 ## 🔗 Useful Links
 
 - [Render Documentation](https://render.com/docs)
+- [Azure Cosmos DB Documentation](https://learn.microsoft.com/azure/cosmos-db/)
 - [YouTube API Documentation](https://developers.google.com/youtube/v3)
 - [Flask Documentation](https://flask.palletsprojects.com/)
+- [Azure Cosmos DB Emulator](https://learn.microsoft.com/azure/cosmos-db/emulator)
