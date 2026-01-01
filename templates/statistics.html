@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Statistics - YouTube Tutorial Scraper{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-bar-chart"></i> Tutorial Statistics</h2>
+        <p class="text-muted">Overview of your tutorial database</p>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 text-center">
+            <div class="card-body">
+                <i class="bi bi-collection-play text-primary fs-1"></i>
+                <h3 class="mt-3">{{ summary.total }}</h3>
+                <p class="text-muted mb-0">Total Tutorials</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 text-center">
+            <div class="card-body">
+                <i class="bi bi-code-slash text-success fs-1"></i>
+                <h3 class="mt-3">{{ summary.by_language|length }}</h3>
+                <p class="text-muted mb-0">Programming Languages</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100 text-center">
+            <div class="card-body">
+                <i class="bi bi-folder text-info fs-1"></i>
+                <h3 class="mt-3">{{ summary.by_subject|length }}</h3>
+                <p class="text-muted mb-0">Subjects/Topics</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Languages -->
+{% if summary.by_language %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-code-square"></i> Top Programming Languages</h4>
+            </div>
+            <div class="card-body">
+                {% for lang, count in summary.by_language.items()|list|slice(10) %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="fw-bold">{{ lang }}</span>
+                        <span class="text-muted">{{ count }} tutorials</span>
+                    </div>
+                    <div class="progress progress-lg">
+                        <div class="progress-bar bg-primary" role="progressbar"
+                            style="width: {{ (count / summary.total * 100)|round }}%" aria-valuenow="{{ count }}"
+                            aria-valuemin="0" aria-valuemax="{{ summary.total }}"
+                            aria-label="{{ lang }} usage percentage">
+                            {{ (count / summary.total * 100)|round|int }}%
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Top Subjects -->
+{% if summary.by_subject %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-book"></i> Top Subjects/Topics</h4>
+            </div>
+            <div class="card-body">
+                {% for subj, count in summary.by_subject.items()|list|slice(10) %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="fw-bold">{{ subj }}</span>
+                        <span class="text-muted">{{ count }} tutorials</span>
+                    </div>
+                    <div class="progress progress-lg">
+                        <div class="progress-bar bg-info" role="progressbar"
+                            style="width: {{ (count / summary.total * 100)|round }}%" aria-valuenow="{{ count }}"
+                            aria-valuemin="0" aria-valuemax="{{ summary.total }}"
+                            aria-label="{{ subj }} usage percentage">
+                            {{ (count / summary.total * 100)|round|int }}%
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not summary.by_language and not summary.by_subject %}
+<div class="alert alert-info text-center">
+    <i class="bi bi-info-circle fs-1 d-block mb-2"></i>
+    <h4>No statistics available</h4>
+    <p>Start by scraping some tutorials from YouTube.</p>
+    <a href="{{ url_for('scrape_page') }}" class="btn btn-primary">
+        <i class="bi bi-search"></i> Start Scraping
+    </a>
+</div>
+{% endif %}
+{% endblock %}

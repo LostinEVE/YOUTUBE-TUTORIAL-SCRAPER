@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: youtube-tutorial-scraper
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: 10000
+    disk:
+      name: tutorial-data
+      mountPath: /app/data
+      sizeGB: 1

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Home - YouTube Tutorial Scraper{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1 class="display-4 text-center mb-3">
+            <i class="bi bi-youtube text-danger"></i> YouTube Tutorial Scraper
+        </h1>
+        <p class="lead text-center text-muted">
+            Discover and organize programming tutorials from YouTube
+        </p>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Tutorials</h5>
+                <h2 class="display-4">{{ summary.total }}</h2>
+                <p class="text-muted mb-0">Videos in database</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Languages</h5>
+                <h2 class="display-4">{{ summary.by_language|length }}</h2>
+                <p class="text-muted mb-0">Programming languages</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stat-card h-100">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Subjects</h5>
+                <h2 class="display-4">{{ summary.by_subject|length }}</h2>
+                <p class="text-muted mb-0">Topics covered</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h3 class="mb-3"><i class="bi bi-lightning-fill text-warning"></i> Quick Actions</h3>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <a href="{{ url_for('scrape_page') }}" class="btn btn-primary w-100 p-3">
+            <i class="bi bi-search d-block fs-1"></i>
+            Scrape New
+        </a>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <a href="{{ url_for('browse_languages') }}" class="btn btn-success w-100 p-3">
+            <i class="bi bi-code-slash d-block fs-1"></i>
+            Browse Languages
+        </a>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <a href="{{ url_for('browse_subjects') }}" class="btn btn-info w-100 p-3">
+            <i class="bi bi-book d-block fs-1"></i>
+            Browse Topics
+        </a>
+    </div>
+    <div class="col-md-3 col-6 mb-3">
+        <a href="{{ url_for('favorites') }}" class="btn btn-warning w-100 p-3">
+            <i class="bi bi-star-fill d-block fs-1"></i>
+            Favorites
+        </a>
+    </div>
+</div>
+
+<!-- Recent Tutorials -->
+{% if recent_tutorials %}
+<div class="row">
+    <div class="col-12">
+        <h3 class="mb-3"><i class="bi bi-clock-history"></i> Recent Tutorials</h3>
+    </div>
+    {% for tutorial in recent_tutorials %}
+    <div class="col-lg-6 mb-3">
+        <div class="card h-100">
+            <div class="row g-0">
+                <div class="col-md-4">
+                    <img src="{{ tutorial.thumbnail_url }}" class="img-fluid rounded-start" alt="{{ tutorial.title }}">
+                </div>
+                <div class="col-md-8">
+                    <div class="card-body">
+                        <h6 class="card-title">{{ tutorial.title[:60] }}{% if tutorial.title|length > 60 %}...{% endif
+                            %}</h6>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                <i class="bi bi-person"></i> {{ tutorial.channel_name }}<br>
+                                <i class="bi bi-eye"></i> {{ "{:,}".format(tutorial.view_count) }} views<br>
+                                <i class="bi bi-clock"></i> {{ (tutorial.duration_seconds // 60) }} min
+                            </small>
+                        </p>
+                        <a href="{{ tutorial.video_url }}" target="_blank" class="btn btn-sm btn-primary">
+                            <i class="bi bi-play-circle"></i> Watch
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="row mt-3">
+    <div class="col-12 text-center">
+        <a href="{{ url_for('all_tutorials') }}" class="btn btn-outline-primary">
+            View All Tutorials <i class="bi bi-arrow-right"></i>
+        </a>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info text-center">
+    <i class="bi bi-info-circle fs-1 d-block mb-2"></i>
+    <h4>No tutorials yet!</h4>
+    <p class="mb-3">Get started by scraping some tutorials from YouTube.</p>
+    <a href="{{ url_for('scrape_page') }}" class="btn btn-primary">
+        <i class="bi bi-search"></i> Start Scraping
+    </a>
+</div>
+{% endif %}
+
+{% endblock %}

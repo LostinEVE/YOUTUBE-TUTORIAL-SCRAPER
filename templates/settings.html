@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - YouTube Tutorial Scraper{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-gear"></i> Settings</h2>
+        <p class="text-muted">Configuration and preferences</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Configuration -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Current Configuration</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tbody>
+                        <tr>
+                            <th>Configured Languages</th>
+                            <td>{{ languages|length }}</td>
+                        </tr>
+                        <tr>
+                            <th>Configured Subjects</th>
+                            <td>{{ subjects|length }}</td>
+                        </tr>
+                        <tr>
+                            <th>Minimum Video Duration</th>
+                            <td>{{ min_duration }} seconds ({{ (min_duration / 60)|round|int }} minutes)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Languages -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Programming Languages</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for lang in languages %}
+                    <div class="col-md-4 col-6 mb-2">
+                        <span class="badge bg-primary">{{ lang }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Subjects -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">Subjects/Topics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for subj in subjects %}
+                    <div class="col-md-6 mb-2">
+                        <span class="badge bg-info">{{ subj }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Info -->
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            <strong>Note:</strong> To modify these settings, edit the <code>config.py</code> file and redeploy the
+            application.
+        </div>
+    </div>
+</div>
+{% endblock %}

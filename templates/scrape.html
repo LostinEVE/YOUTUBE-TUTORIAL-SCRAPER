@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Scrape Tutorials - YouTube Tutorial Scraper{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-search"></i> Scrape New Tutorials</h2>
+        <p class="text-muted">Search YouTube for programming tutorials</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-body">
+                <form id="scrapeForm">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Scrape Type</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="scrapeType" id="scrapeAll" value="all" checked>
+                            <label class="btn btn-outline-primary" for="scrapeAll">
+                                <i class="bi bi-globe"></i> All Categories
+                            </label>
+
+                            <input type="radio" class="btn-check" name="scrapeType" id="scrapeLanguage"
+                                value="language">
+                            <label class="btn btn-outline-primary" for="scrapeLanguage">
+                                <i class="bi bi-code-slash"></i> Specific Language
+                            </label>
+
+                            <input type="radio" class="btn-check" name="scrapeType" id="scrapeSubject" value="subject">
+                            <label class="btn btn-outline-primary" for="scrapeSubject">
+                                <i class="bi bi-book"></i> Specific Subject
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="languageSelect" style="display: none;">
+                        <label for="language" class="form-label">Programming Language</label>
+                        <select class="form-select" id="language" name="language">
+                            <option value="">Select a language...</option>
+                            {% for lang in languages %}
+                            <option value="{{ lang }}">{{ lang }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="subjectSelect" style="display: none;">
+                        <label for="subject" class="form-label">Subject/Topic</label>
+                        <select class="form-select" id="subject" name="subject">
+                            <option value="">Select a subject...</option>
+                            {% for subj in subjects %}
+                            <option value="{{ subj }}">{{ subj }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Note:</strong> Scraping may take a minute or two depending on the amount of data.
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100" id="scrapeBtn">
+                        <i class="bi bi-search"></i> Start Scraping
+                    </button>
+                </form>
+
+                <!-- Progress -->
+                <div id="progress" class="mt-4" style="display: none;">
+                    <div class="text-center mb-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Scraping tutorials... Please wait.</p>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                            style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="results" class="mt-4" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Show/hide select based on scrape type
+    document.querySelectorAll('input[name="scrapeType"]').forEach(radio => {
+        radio.addEventListener('change', function () {
+            document.getElementById('languageSelect').style.display =
+                this.value === 'language' ? 'block' : 'none';
+            document.getElementById('subjectSelect').style.display =
+                this.value === 'subject' ? 'block' : 'none';
+        });
+    });
+
+    // Handle form submission
+    document.getElementById('scrapeForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const scrapeType = document.querySelector('input[name="scrapeType"]:checked').value;
+        const language = document.getElementById('language').value;
+        const subject = document.getElementById('subject').value;
+
+        // Validation
+        if (scrapeType === 'language' && !language) {
+            alert('Please select a programming language');
+            return;
+        }
+        if (scrapeType === 'subject' && !subject) {
+            alert('Please select a subject');
+            return;
+        }
+
+        // Show progress
+        document.getElementById('scrapeBtn').disabled = true;
+        document.getElementById('progress').style.display = 'block';
+        document.getElementById('results').style.display = 'none';
+
+        try {
+            const response = await fetch('/api/scrape', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    type: scrapeType,
+                    language: language,
+                    subject: subject
+                })
+            });
+
+            const data = await response.json();
+
+            // Hide progress
+            document.getElementById('progress').style.display = 'none';
+            document.getElementById('scrapeBtn').disabled = false;
+
+            // Show results
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+
+            if (data.success) {
+                resultsDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h5><i class="bi bi-check-circle"></i> Scraping Complete!</h5>
+                    <ul class="mb-0">
+                        <li><strong>${data.added}</strong> new tutorials added</li>
+                        <li><strong>${data.duplicates}</strong> duplicates skipped</li>
+                        <li><strong>${data.total}</strong> total videos found</li>
+                    </ul>
+                    <a href="${window.location.origin}/all" class="btn btn-sm btn-success mt-3">
+                        View All Tutorials <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            `;
+            } else {
+                resultsDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="bi bi-exclamation-circle"></i> Error</h5>
+                    <p class="mb-0">${data.error}</p>
+                </div>
+            `;
+            }
+        } catch (error) {
+            document.getElementById('progress').style.display = 'none';
+            document.getElementById('scrapeBtn').disabled = false;
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('results').innerHTML = `
+            <div class="alert alert-danger">
+                <h5><i class="bi bi-exclamation-circle"></i> Error</h5>
+                <p class="mb-0">Failed to scrape tutorials: ${error.message}</p>
+            </div>
+        `;
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,71 @@
+/* Custom Styles for YouTube Tutorial Scraper */
+
+:root {
+    --primary-color: #0d6efd;
+    --secondary-color: #6c757d;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.main-content {
+    flex: 1;
+    padding: 20px 0;
+}
+
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.video-thumbnail {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.stat-card {
+    border-left: 4px solid var(--primary-color);
+}
+
+footer {
+    background-color: #f8f9fa;
+    padding: 20px 0;
+    margin-top: 40px;
+}
+
+.btn-favorite {
+    color: #ffc107;
+}
+
+.btn-favorite.active {
+    color: #ff6b6b;
+}
+
+/* Error page icons */
+.error-icon {
+    font-size: 6rem;
+}
+
+/* Progress bar heights */
+.progress-lg {
+    height: 25px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .navbar-nav {
+        text-align: center;
+    }
+}

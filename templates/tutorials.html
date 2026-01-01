@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - YouTube Tutorial Scraper{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="bi bi-list-ul"></i> {{ title }}</h2>
+        <p class="text-muted">{{ tutorials|length }} videos found</p>
+    </div>
+</div>
+
+{% if tutorials %}
+<div class="row">
+    {% for tutorial in tutorials %}
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card h-100">
+            <img src="{{ tutorial.thumbnail_url }}" class="card-img-top" alt="{{ tutorial.title }}">
+            <div class="card-body d-flex flex-column">
+                <h6 class="card-title">
+                    {% if tutorial.is_favorite %}
+                    <i class="bi bi-star-fill text-warning"></i>
+                    {% endif %}
+                    {% if tutorial.is_watched %}
+                    <i class="bi bi-check-circle-fill text-success"></i>
+                    {% endif %}
+                    {{ tutorial.title[:60] }}{% if tutorial.title|length > 60 %}...{% endif %}
+                </h6>
+                <p class="card-text flex-grow-1">
+                    <small class="text-muted d-block mb-1">
+                        <i class="bi bi-person"></i> {{ tutorial.channel_name }}
+                    </small>
+                    <small class="text-muted d-block mb-1">
+                        <i class="bi bi-eye"></i> {{ "{:,}".format(tutorial.view_count) }} views
+                    </small>
+                    <small class="text-muted d-block mb-1">
+                        <i class="bi bi-clock"></i> {{ (tutorial.duration_seconds // 60) }} minutes
+                    </small>
+                    {% if tutorial.programming_language %}
+                    <span class="badge bg-primary">{{ tutorial.programming_language }}</span>
+                    {% endif %}
+                    {% if tutorial.subject %}
+                    <span class="badge bg-info">{{ tutorial.subject }}</span>
+                    {% endif %}
+                </p>
+                <div class="btn-group w-100" role="group">
+                    <a href="{{ tutorial.video_url }}" target="_blank" class="btn btn-primary btn-sm">
+                        <i class="bi bi-play-circle"></i> Watch
+                    </a>
+                    <button
+                        class="btn btn-outline-warning btn-sm btn-favorite {% if tutorial.is_favorite %}active{% endif %}"
+                        onclick="toggleFavorite('{{ tutorial.video_id }}', this)" aria-label="Toggle favorite">
+                        <i class="bi bi-star-fill" aria-hidden="true"></i>
+                        <span class="visually-hidden">Favorite</span>
+                    </button>
+                    <button class="btn btn-outline-success btn-sm"
+                        onclick="markWatched('{{ tutorial.video_id }}', this)" {% if tutorial.is_watched %}disabled{%
+                        endif %} aria-label="Mark as watched">
+                        <i class="bi bi-check" aria-hidden="true"></i>
+                        <span class="visually-hidden">Mark watched</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if total_pages and total_pages > 1 %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if page > 1 %}
+        <li class="page-item">
+            <a class="page-link" href="{{ url_for(request.endpoint, page=page-1) }}">Previous</a>
+        </li>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+        {% if p == page %}
+        <li class="page-item active"><span class="page-link">{{ p }}</span></li>
+        {% elif p <= 3 or p> total_pages - 3 or (p >= page - 1 and p <= page + 1) %} <li class="page-item"><a
+                    class="page-link" href="{{ url_for(request.endpoint, page=p) }}">{{ p }}</a></li>
+                {% elif p == 4 or p == total_pages - 3 %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %} <li class="page-item">
+                    <a class="page-link" href="{{ url_for(request.endpoint, page=page+1) }}">Next</a>
+                    </li>
+                    {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info text-center">
+    <i class="bi bi-info-circle fs-1 d-block mb-2"></i>
+    <h4>No tutorials found</h4>
+    <p>Try scraping some tutorials or adjusting your search.</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleFavorite(videoId, button) {
+        const isFavorite = button.classList.contains('active');
+
+        fetch(`/api/favorite/${videoId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ is_favorite: !isFavorite })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.classList.toggle('active');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function markWatched(videoId, button) {
+        fetch(`/api/watched/${videoId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    button.disabled = true;
+                    button.innerHTML = '<i class="bi bi-check-circle-fill"></i>';
+                    const card = button.closest('.card');
+                    const title = card.querySelector('.card-title');
+                    if (!title.innerHTML.includes('check-circle-fill')) {
+                        title.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i> ' + title.innerHTML;
+                    }
+                }
+            })
+            .catch(error => console.error('Error:', error));
+    }
+</script>
+{% endblock %}
