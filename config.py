@@ -1,6 +1,10 @@
 """Configuration for YouTube Tutorial Scraper"""
 
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Azure Cosmos DB Configuration
 COSMOS_ENDPOINT = os.getenv("COSMOS_ENDPOINT", "")
